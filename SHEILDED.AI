@@ -1,0 +1,285 @@
+from qiskit import QuantumCircuit, execute, Aer
+import random
+import gradio as gr
+# functions to encrypt and decrypt
+
+def encrypt(message, key):
+    encrypted_message = ""
+    key_length = len(key)
+    for i in range(len(message)):
+        encrypted_message += str(int(message[i]) ^ int(key[i % key_length]))
+    return encrypted_message
+
+
+def decrypt(encrypted_message, key):
+    decrypted_message = ""
+    key_length = len(key)
+    for i in range(len(encrypted_message)):
+        decrypted_message += str(int(encrypted_message[i]) ^ int(key[i % key_length]))
+    return decrypted_message
+
+
+def estimate_vehicle_insurance(DrivAge ,sm ,VehAge ,city,lac,car):
+    model = joblib.load('driving1.pkl')
+    D=False
+    J=False
+    R=False
+      
+
+     
+
+    l2 = [int(VehAge),int(DrivAge),D,J,R]
+    df2 = pd.DataFrame(data = {l1[i]: [l2[i]] for i in range(len(l1))})
+    ins=model.predict(df2)
+
+    if(sm=='Single'):
+        m = ins * 1.06
+       
+    else:m= ins   
+
+    #--------------
+    if (lac == '0'):
+        x = m * 1.15 
+    elif (lac == '1-2'):
+        x =m * 1.1
+    elif (lac == '3-4'):
+        x = m * 1.05
+    elif (lac == '5+'):
+        x = m * 1.00   
+    else:x=ins * 1
+
+    #   ------------
+    
+    
+    if (car == 'Toyota'):
+        c = x * 0.9
+    elif (car == 'Kia'):
+        c = x * 0.75 
+    elif (car == 'BMW'):
+        c = x * 0.70
+    elif (car == 'Nissan'):
+        c = x * 0.80
+    elif (car == 'Hyundai'):
+        c = x * 0.90    
+    else: c ==1
+
+    if(city=='Dammam'):
+        y = c * 0.8
+    elif(city=='Jeddah'):
+        y = c * 0.85 
+    elif(city=='Riyadh'):
+        y = c * 0.95
+    return y
+ 
+  
+
+
+inputs = [gr.Slider(18, 100), gr.Radio(["Married", "Single"], label="Marital Status: ",value='key1') ,gr.Slider(0, 20)
+          ,gr.Dropdown(["Dammam", "Jeddah", "Riyadh"], label="City "), gr.Radio(["0", "1-2",'3-4','5+'],
+                                label="Last accident (years):"), gr.Dropdown(["Toyota", "Kia", "BMW","Nissan","Hyundai"],label= "Car Brand")  ]
+
+
+
+output = 'textbox'
+
+
+gr.Interface(fn=estimate_vehicle_insurance, inputs=inputs, outputs=output).launch(share=True)
+
+
+
+
+##Encryption----------------
+
+
+
+number_of_bits = 15
+l2 =[0,19,False,True,False]
+#Getting the 10 random bits and filters
+rand_bits = [random.randint(0,1) for i in range(number_of_bits)]
+
+
+#Applying the bits to the circuit
+qc = QuantumCircuit(number_of_bits)
+for i in range(number_of_bits):
+    if(rand_bits[i]==1):
+        qc.x(i)
+    else:
+        qc.i(i)
+qc.barrier()
+
+
+
+#Getting and Applying the filters to the circuit
+S_rand_filters = [random.choice(['Z','X']) for i in range(number_of_bits)]
+for i in range(number_of_bits):
+    if(S_rand_filters[i]=='Z'):
+        qc.i(i)
+    else:
+        qc.h(i)
+
+
+
+
+K_rand_filters = [random.choice(['Z','X']) for i in range(number_of_bits)]
+
+
+for i in range(number_of_bits):
+    if(K_rand_filters[i]=='Z'):
+        qc.i(i)
+    else:
+        qc.h(i)
+qc.measure_all()
+qc.barrier()
+
+output = list(execute(qc,Aer.get_backend('qasm_simulator'), shots=1).result().get_counts())[0]
+output = output[::-1] #Reversing output
+
+listofindex = []
+for i in range(number_of_bits):
+    if(S_rand_filters[i]==K_rand_filters[i]):
+        listofindex.append(i)
+
+S_key = [rand_bits[i] for i in listofindex]
+K_key = [int(output[i]) for i in listofindex]
+
+# Seperating list variables to encrypt later
+var_1 = l2[0]
+var_2 = l2[1]
+var_3 = l2[2]
+var_4 = l2[3]
+var_5 = l2[4]
+
+# user turn user inputs to binary to prepare it for encryption 
+binary_var_1 = bin(var_1)
+binary_var_2 = bin(var_2)
+binary_var_3 = bin(int(var_3))  # Convert boolean to integer before converting to binary
+binary_var_4 = bin(int(var_4))  # Convert boolean to integer before converting to binary
+binary_var_5 = bin(int(var_5))  # Convert boolean to integer before converting to binary
+
+binary_list = [binary_var_1[2:], binary_var_2[2:], binary_var_3[2:], binary_var_4[2:], binary_var_5[2:]]
+
+
+
+# Encrypting the binary inputs
+
+b1=encrypt(binary_list[0],S_key)
+b2=encrypt(binary_list[1],S_key)
+b3=encrypt(binary_list[2],S_key)
+b4=encrypt(binary_list[3],S_key)
+b5=encrypt(binary_list[4],S_key)
+
+
+# Decrypting binary inputs 
+db1=decrypt(b1,K_key)
+
+db2=decrypt(b2,K_key)
+db3=decrypt(b3,K_key)
+db4=decrypt(b4,K_key)
+db5=decrypt(b5,K_key)
+
+
+
+
+binary_variables = [db1,db2,db3,db4,db5]
+
+
+
+
+
+# Convert binary variables to normal form
+normal_variables = []
+for binary in binary_variables:
+    if binary.isdigit():  # Check if the binary representation is a digit
+        normal_variables.append(int(binary, 2))  # Convert to integer
+    elif binary == '1':
+        normal_variables.append(True)  # Convert '1' to True
+    elif binary == '0':
+        normal_variables.append(False)  # Convert '0' to False
+    else:
+        print(f"Invalid binary representation: {binary}")
+
+print("Normal variables:", normal_variables)
+
+for i in range(-3, 0):  # Loop through the last three items
+    if normal_variables[i] == 0:
+        normal_variables[i] = False
+    elif normal_variables[i] == 1:
+        normal_variables[i] = True
+    else:
+        raise ValueError("Values should be either 0 or 1")
+
+original_message = normal_variables
+
+
+
+
+
+
+
+
+
+import joblib
+import numpy as np
+import pandas as pd
+# from tweedie import tweedie
+import statsmodels.api as sm
+from sklearn import tree
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score,roc_curve,classification_report,confusion_matrix
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
+import statsmodels.api as sm
+
+df = pd.read_csv('driving.csv')
+
+l1 =['VehAge',  'DrivAge' , 'Location_DAMMAM', 'Location_JEDDAH', 'Location_RYIADH']
+
+df2 = pd.DataFrame(data = {l1[i]: [l2[i]] for i in range(len(l1))})
+
+df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+df = df.rename(columns={'Claim Date': 'AccDate',
+                        'Car Brand': 'CarBrand',
+                        'Claim Amt2': 'ClaimAmt'})
+df = df.iloc[: , :-1]
+
+
+# Target Variable 
+ytar = df.iloc[:,-1:]
+
+
+# Features, One hot Encoding
+columns_to_remove = ['ClaimAmt', 'ID', 'AccDate','CarBrand']
+xfeat = df.drop(columns=columns_to_remove, axis=1)
+
+
+xfeat = pd.get_dummies(xfeat, columns=['Location'])
+xfar=np.asarray(xfeat)
+
+
+gbm = GradientBoostingRegressor(n_estimators=100, learning_rate=0.001, max_depth=3)
+ytar = np.asarray(ytar)
+ytar = ytar.ravel()
+gbm.fit(xfeat, ytar)
+#df2 = df.drop(columns=columns_to_remove, axis=1)
+
+#prediction = gbm.predict(xfeat)
+prd = gbm.predict(df2)
+print(prd)
+Running on local URL:  http://127.0.0.1:7860
+Running on public URL: https://ae82a9f83659f7977a.gradio.live
+
+This share link expires in 72 hours. For free permanent hosting and GPU upgrades, run `gradio deploy` from Terminal to deploy to Spaces (https://huggingface.co/spaces)
+/var/folders/2z/mtvz0bmn7wj4cfwdm8xkjhc00000gn/T/ipykernel_68510/3392147398.py:107: DeprecationWarning: The method ``qiskit.circuit.quantumcircuit.QuantumCircuit.i()`` is deprecated as of qiskit 0.45.0. It will be removed no earlier than 3 months after the release date. Use QuantumCircuit.id as direct replacement.
+  qc.i(i)
+/var/folders/2z/mtvz0bmn7wj4cfwdm8xkjhc00000gn/T/ipykernel_68510/3392147398.py:116: DeprecationWarning: The method ``qiskit.circuit.quantumcircuit.QuantumCircuit.i()`` is deprecated as of qiskit 0.45.0. It will be removed no earlier than 3 months after the release date. Use QuantumCircuit.id as direct replacement.
+  qc.i(i)
+/var/folders/2z/mtvz0bmn7wj4cfwdm8xkjhc00000gn/T/ipykernel_68510/3392147398.py:128: DeprecationWarning: The method ``qiskit.circuit.quantumcircuit.QuantumCircuit.i()`` is deprecated as of qiskit 0.45.0. It will be removed no earlier than 3 months after the release date. Use QuantumCircuit.id as direct replacement.
+  qc.i(i)
+0 11111 0 1 0
+0 10011 0 1 0
+Normal variables: [0, 19, 0, 1, 0]
+[3256.89182388]
